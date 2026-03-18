@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  sortOrder Int       @default(0)
+  expenses  Expense[]
+}
+
+model Expense {
+  id         String    @id @default(cuid())
+  date       String // YYYY-MM-DD
+  amount     Int
+  note       String    @default("")
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+}
+
+model IncomeSource {
+  id            String @id @default(cuid())
+  name          String
+  amountMonthly Int
+}
+
+model SavingsTarget {
+  id            String @id @default(cuid())
+  currentAmount Int
+  goalAmount    Int
+  label         String
+}

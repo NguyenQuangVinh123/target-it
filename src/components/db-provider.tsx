@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { ensureSeed } from "@/lib/seed";
+import { ensureServerSeed } from "@/actions/budget";
 
 export function DbProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -11,11 +11,15 @@ export function DbProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        await ensureSeed();
+        await ensureServerSeed();
         if (!cancelled) setReady(true);
       } catch (e) {
         if (!cancelled) {
-          setErr(e instanceof Error ? e.message : "Không mở được IndexedDB");
+          setErr(
+            e instanceof Error
+              ? e.message
+              : "Không kết nối được database. Kiểm tra DATABASE_URL trong .env"
+          );
         }
       }
     })();
@@ -27,9 +31,14 @@ export function DbProvider({ children }: { children: ReactNode }) {
   if (err) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-center">
-        <p className="text-red-600 dark:text-red-400">{err}</p>
-        <p className="text-sm text-neutral-500">
-          Thử mở bằng HTTPS hoặc localhost; một số trình duyệt chặn storage ở chế độ riêng tư.
+        <p className="text-red-400">{err}</p>
+        <p className="text-sm text-teal-500">
+          Tạo file <code className="rounded bg-teal-950 px-1">.env</code> với{" "}
+          <code className="rounded bg-teal-950 px-1">DATABASE_URL</code> và{" "}
+          <code className="rounded bg-teal-950 px-1">DATABASE_URL_UNPOOLED</code>{" "}
+          (Neon), rồi chạy{" "}
+          <code className="rounded bg-teal-950 px-1">npx prisma migrate deploy</code>
+          .
         </p>
       </div>
     );

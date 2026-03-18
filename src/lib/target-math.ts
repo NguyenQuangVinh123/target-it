@@ -4,7 +4,7 @@ import {
   startOfMonth,
   subMonths,
 } from "date-fns";
-import type { Expense } from "./db";
+import type { Expense } from "./types";
 
 export function sumExpensesInMonth(
   expenses: Expense[],

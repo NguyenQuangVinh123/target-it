@@ -1,7 +1,11 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { db, genId, type Expense } from "@/lib/db";
+import {
+  createExpense,
+  deleteExpense,
+  listCategories,
+  listExpenses,
+} from "@/actions/budget";
 import { formatVnd } from "@/lib/format";
 import {
   endOfMonth,
@@ -12,8 +16,9 @@ import {
   startOfMonth,
 } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { EMPTY_CATEGORIES, EMPTY_EXPENSES } from "@/lib/empty";
+import type { Category, Expense } from "@/lib/types";
 
 function monthValue(d: Date) {
   return format(d, "yyyy-MM");
@@ -29,15 +34,18 @@ export default function ExpensesPage() {
   const [amountStr, setAmountStr] = useState("");
   const [note, setNote] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [ex, setEx] = useState<Expense[]>(EMPTY_EXPENSES);
+  const [cats, setCats] = useState<Category[]>(EMPTY_CATEGORIES);
 
-  const expenses = useLiveQuery(() => db.expenses.toArray(), []);
-  const categories = useLiveQuery(
-    () => db.categories.orderBy("sortOrder").toArray(),
-    []
-  );
+  const load = useCallback(async () => {
+    const [e, c] = await Promise.all([listExpenses(), listCategories()]);
+    setEx(e);
+    setCats(c);
+  }, []);
 
-  const ex = expenses ?? EMPTY_EXPENSES;
-  const cats = categories ?? EMPTY_CATEGORIES;
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const monthStart = useMemo(
     () => startOfMonth(parse(monthStr, "yyyy-MM", new Date())),
@@ -67,26 +75,27 @@ export default function ExpensesPage() {
     return map;
   }, [inMonth]);
 
-  const catName = (id?: string) =>
+  const catName = (id?: string | null) =>
     cats.find((c) => c.id === id)?.name ?? "—";
 
-  async function addExpense(e: React.FormEvent) {
-    e.preventDefault();
+  async function addExpenseForm(ev: React.FormEvent) {
+    ev.preventDefault();
     const amount = parseInt(amountStr.replace(/\D/g, ""), 10) || 0;
     if (amount <= 0) return;
-    await db.expenses.add({
-      id: genId(),
+    await createExpense({
       date,
       amount,
       note: note.trim(),
-      categoryId: categoryId || undefined,
+      categoryId: categoryId || null,
     });
     setAmountStr("");
     setNote("");
+    await load();
   }
 
   async function remove(id: string) {
-    await db.expenses.delete(id);
+    await deleteExpense(id);
+    await load();
   }
 
   const monthTotal = inMonth.reduce((s, x) => s + x.amount, 0);
@@ -110,7 +119,7 @@ export default function ExpensesPage() {
       </div>
 
       <form
-        onSubmit={addExpense}
+        onSubmit={addExpenseForm}
         className="space-y-3 rounded-2xl border border-teal-800/40 bg-teal-900/25 p-4"
       >
         <h2 className="text-sm font-medium text-teal-100">Thêm khoản chi</h2>

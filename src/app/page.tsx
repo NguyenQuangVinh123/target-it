@@ -1,7 +1,10 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import {
+  listExpenses,
+  listIncomeSources,
+  listSavingsTargets,
+} from "@/actions/budget";
 import {
   avgMonthlyExpenseLastN,
   computeTargetProjection,
@@ -9,29 +12,42 @@ import {
 } from "@/lib/target-math";
 import { formatVnd } from "@/lib/format";
 import { addMonths, format } from "date-fns";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   EMPTY_EXPENSES,
   EMPTY_INCOMES,
   EMPTY_TARGETS,
 } from "@/lib/empty";
+import type { Expense, IncomeSource, SavingsTarget } from "@/lib/types";
 
 const AVG_MONTHS_OPTIONS = [3, 6, 12] as const;
 
 export default function DashboardPage() {
   const [avgN, setAvgN] = useState<(typeof AVG_MONTHS_OPTIONS)[number]>(3);
   const [horizon, setHorizon] = useState(12);
+  const [expenses, setExpenses] = useState<Expense[]>(EMPTY_EXPENSES);
+  const [incomes, setIncomes] = useState<IncomeSource[]>(EMPTY_INCOMES);
+  const [allTargets, setAllTargets] = useState<SavingsTarget[]>(EMPTY_TARGETS);
 
-  const expensesQ = useLiveQuery(() => db.expenses.toArray(), []);
-  const incomesQ = useLiveQuery(() => db.incomeSources.toArray(), []);
-  const allTargetsQ = useLiveQuery(() => db.savingsTargets.toArray(), []);
-  const expenses = expensesQ ?? EMPTY_EXPENSES;
-  const incomes = incomesQ ?? EMPTY_INCOMES;
-  const allTargets = allTargetsQ ?? EMPTY_TARGETS;
+  const load = useCallback(async () => {
+    const [e, i, t] = await Promise.all([
+      listExpenses(),
+      listIncomeSources(),
+      listSavingsTargets(),
+    ]);
+    setExpenses(e);
+    setIncomes(i);
+    setAllTargets(t);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
   const targetRow = allTargets[0];
 
   const monthlyIncome = useMemo(
-    () => incomes.reduce((s, i) => s + i.amountMonthly, 0),
+    () => incomes.reduce((s, x) => s + x.amountMonthly, 0),
     [incomes]
   );
   const expenseThisMonth = useMemo(
@@ -59,9 +75,7 @@ export default function DashboardPage() {
     targetRow && targetRow.goalAmount > 0
       ? Math.min(
           100,
-          Math.round(
-            (targetRow.currentAmount / targetRow.goalAmount) * 100
-          )
+          Math.round((targetRow.currentAmount / targetRow.goalAmount) * 100)
         )
       : 0;
 
@@ -179,7 +193,12 @@ export default function DashboardPage() {
                 <p className="mt-1 font-medium text-teal-50">
                   ~{proj.monthsThisMonth} tháng
                   <span className="ml-1 block text-xs font-normal text-teal-400/90">
-                    (dự kiến ~{format(addMonths(new Date(), proj.monthsThisMonth), "MM/yyyy")})
+                    (dự kiến ~
+                    {format(
+                      addMonths(new Date(), proj.monthsThisMonth),
+                      "MM/yyyy"
+                    )}
+                    )
                   </span>
                 </p>
               ) : (
@@ -201,7 +220,8 @@ export default function DashboardPage() {
                 <p className="mt-1 font-medium text-teal-50">
                   ~{proj.monthsAvg} tháng
                   <span className="ml-1 block text-xs font-normal text-teal-400/90">
-                    (dự kiến ~{format(addMonths(new Date(), proj.monthsAvg), "MM/yyyy")})
+                    (dự kiến ~
+                    {format(addMonths(new Date(), proj.monthsAvg), "MM/yyyy")})
                   </span>
                 </p>
               ) : (
