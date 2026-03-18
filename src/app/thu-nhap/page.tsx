@@ -1,9 +1,18 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { db, genId } from "@/lib/db";
+import {
+  createIncomeSource,
+  deleteIncomeSource,
+  listIncomeSources,
+  updateIncomeSource,
+} from "@/actions/budget";
 import { formatVnd } from "@/lib/format";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { IncomeSource } from "@/lib/types";
+
+function digitsOnly(s: string) {
+  return s.replace(/\D/g, "");
+}
 
 export default function IncomePage() {
   const [name, setName] = useState("");
@@ -11,24 +20,29 @@ export default function IncomePage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editAmount, setEditAmount] = useState("");
+  const [rows, setRows] = useState<IncomeSource[]>([]);
 
-  const rows = useLiveQuery(() => db.incomeSources.toArray(), []) ?? [];
+  const load = useCallback(async () => {
+    setRows(await listIncomeSources());
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
   const total = rows.reduce((s, r) => s + r.amountMonthly, 0);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    const amount = parseInt(amountStr.replace(/\D/g, ""), 10) || 0;
+    const amount = parseInt(digitsOnly(amountStr), 10) || 0;
     if (!name.trim() || amount <= 0) return;
-    await db.incomeSources.add({
-      id: genId(),
-      name: name.trim(),
-      amountMonthly: amount,
-    });
+    await createIncomeSource({ name: name.trim(), amountMonthly: amount });
     setName("");
     setAmountStr("");
+    await load();
   }
 
-  function startEdit(r: (typeof rows)[0]) {
+  function startEdit(r: IncomeSource) {
     setEditingId(r.id);
     setEditName(r.name);
     setEditAmount(String(r.amountMonthly));
@@ -36,18 +50,20 @@ export default function IncomePage() {
 
   async function saveEdit() {
     if (!editingId) return;
-    const amount = parseInt(editAmount.replace(/\D/g, ""), 10) || 0;
+    const amount = parseInt(digitsOnly(editAmount), 10) || 0;
     if (!editName.trim() || amount <= 0) return;
-    await db.incomeSources.update(editingId, {
+    await updateIncomeSource(editingId, {
       name: editName.trim(),
       amountMonthly: amount,
     });
     setEditingId(null);
+    await load();
   }
 
   async function remove(id: string) {
-    await db.incomeSources.delete(id);
+    await deleteIncomeSource(id);
     if (editingId === id) setEditingId(null);
+    await load();
   }
 
   return (
@@ -80,9 +96,11 @@ export default function IncomePage() {
           <input
             type="text"
             inputMode="numeric"
+            autoComplete="off"
+            placeholder="vd. 15000000"
             value={amountStr}
-            onChange={(e) => setAmountStr(e.target.value)}
-            className="rounded-xl border border-teal-700 bg-teal-950 px-3 py-2 text-teal-50"
+            onChange={(e) => setAmountStr(digitsOnly(e.target.value))}
+            className="rounded-xl border border-teal-700 bg-teal-950 px-3 py-2 font-medium tabular-nums text-teal-50"
           />
         </label>
         <button
@@ -114,9 +132,10 @@ export default function IncomePage() {
                 <input
                   type="text"
                   inputMode="numeric"
+                  autoComplete="off"
                   value={editAmount}
-                  onChange={(e) => setEditAmount(e.target.value)}
-                  className="w-full rounded-lg border border-teal-700 bg-teal-950 px-2 py-2 text-teal-50"
+                  onChange={(e) => setEditAmount(digitsOnly(e.target.value))}
+                  className="w-full rounded-lg border border-teal-700 bg-teal-950 px-2 py-2 font-medium tabular-nums text-teal-50"
                 />
                 <div className="flex gap-2">
                   <button

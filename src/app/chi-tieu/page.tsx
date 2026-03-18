@@ -139,10 +139,13 @@ export default function ExpensesPage() {
             <input
               type="text"
               inputMode="numeric"
+              autoComplete="off"
               placeholder="vd. 150000"
               value={amountStr}
-              onChange={(ev) => setAmountStr(ev.target.value)}
-              className="rounded-xl border border-teal-700 bg-teal-950 px-3 py-2 text-teal-50"
+              onChange={(ev) =>
+                setAmountStr(ev.target.value.replace(/\D/g, ""))
+              }
+              className="rounded-xl border border-teal-700 bg-teal-950 px-3 py-2 font-medium tabular-nums text-teal-50"
             />
           </label>
         </div>

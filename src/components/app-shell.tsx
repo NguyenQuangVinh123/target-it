@@ -20,7 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <h1 className="text-lg font-semibold tracking-tight text-teal-50">
           TargetIt
         </h1>
-        <p className="text-xs text-teal-200/80">Quản lý chi tiêu · dữ liệu trên máy</p>
+        <p className="text-xs text-teal-200/80">Quản lý chi tiêu</p>
       </header>
       <main className="flex-1 px-4 py-4">{children}</main>
       <nav

@@ -1,22 +1,38 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { db, genId } from "@/lib/db";
-import { useState } from "react";
+import {
+  createSavingsTarget,
+  deleteSavingsTarget,
+  listSavingsTargets,
+  updateSavingsTarget,
+} from "@/actions/budget";
+import { useCallback, useEffect, useState } from "react";
+import type { SavingsTarget } from "@/lib/types";
+
+function digitsOnly(s: string) {
+  return s.replace(/\D/g, "");
+}
 
 export default function TargetsPage() {
   const [label, setLabel] = useState("");
   const [currentStr, setCurrentStr] = useState("");
   const [goalStr, setGoalStr] = useState("");
-  const rows = useLiveQuery(() => db.savingsTargets.toArray(), []) ?? [];
+  const [rows, setRows] = useState<SavingsTarget[]>([]);
+
+  const load = useCallback(async () => {
+    setRows(await listSavingsTargets());
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    const current = parseInt(currentStr.replace(/\D/g, ""), 10) || 0;
-    const goal = parseInt(goalStr.replace(/\D/g, ""), 10) || 0;
+    const current = parseInt(digitsOnly(currentStr), 10) || 0;
+    const goal = parseInt(digitsOnly(goalStr), 10) || 0;
     if (!label.trim() || goal <= 0) return;
-    await db.savingsTargets.add({
-      id: genId(),
+    await createSavingsTarget({
       label: label.trim(),
       currentAmount: current,
       goalAmount: goal,
@@ -24,17 +40,12 @@ export default function TargetsPage() {
     setLabel("");
     setCurrentStr("");
     setGoalStr("");
-  }
-
-  async function updateField(
-    id: string,
-    patch: Partial<{ currentAmount: number; goalAmount: number; label: string }>
-  ) {
-    await db.savingsTargets.update(id, patch);
+    await load();
   }
 
   async function remove(id: string) {
-    await db.savingsTargets.delete(id);
+    await deleteSavingsTarget(id);
+    await load();
   }
 
   return (
@@ -66,10 +77,11 @@ export default function TargetsPage() {
             <input
               type="text"
               inputMode="numeric"
+              autoComplete="off"
               value={currentStr}
-              onChange={(e) => setCurrentStr(e.target.value)}
+              onChange={(e) => setCurrentStr(digitsOnly(e.target.value))}
               placeholder="0"
-              className="rounded-xl border border-teal-700 bg-teal-950 px-3 py-2 text-teal-50"
+              className="rounded-xl border border-teal-700 bg-teal-950 px-3 py-2 font-medium tabular-nums text-teal-50"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-teal-300/80">
@@ -77,9 +89,11 @@ export default function TargetsPage() {
             <input
               type="text"
               inputMode="numeric"
+              autoComplete="off"
               value={goalStr}
-              onChange={(e) => setGoalStr(e.target.value)}
-              className="rounded-xl border border-teal-700 bg-teal-950 px-3 py-2 text-teal-50"
+              onChange={(e) => setGoalStr(digitsOnly(e.target.value))}
+              placeholder="vd. 50000000"
+              className="rounded-xl border border-teal-700 bg-teal-950 px-3 py-2 font-medium tabular-nums text-teal-50"
             />
           </label>
         </div>
@@ -105,7 +119,8 @@ export default function TargetsPage() {
                   key={`l-${r.id}-${r.label}`}
                   onBlur={(e) => {
                     const v = e.target.value.trim();
-                    if (v && v !== r.label) updateField(r.id, { label: v });
+                    if (v && v !== r.label)
+                      updateSavingsTarget(r.id, { label: v }).then(load);
                   }}
                   className="mb-1 w-full rounded-lg border border-teal-700 bg-teal-950 px-2 py-2 font-medium text-teal-50"
                 />
@@ -130,15 +145,18 @@ export default function TargetsPage() {
                   <input
                     type="text"
                     inputMode="numeric"
+                    autoComplete="off"
                     defaultValue={String(r.currentAmount)}
                     key={`c-${r.id}-${r.currentAmount}`}
                     onBlur={(e) => {
-                      const v = parseInt(e.target.value.replace(/\D/g, ""), 10);
+                      const v = parseInt(digitsOnly(e.target.value), 10);
                       if (!Number.isNaN(v) && v >= 0 && v !== r.currentAmount) {
-                        updateField(r.id, { currentAmount: v });
+                        updateSavingsTarget(r.id, { currentAmount: v }).then(
+                          load
+                        );
                       }
                     }}
-                    className="mt-1 w-full rounded-lg border border-teal-700 bg-teal-950 px-2 py-2 text-teal-50 tabular-nums"
+                    className="mt-1 w-full rounded-lg border border-teal-700 bg-teal-950 px-2 py-2 font-medium tabular-nums text-teal-50"
                   />
                 </dd>
               </div>
@@ -148,15 +166,16 @@ export default function TargetsPage() {
                   <input
                     type="text"
                     inputMode="numeric"
+                    autoComplete="off"
                     defaultValue={String(r.goalAmount)}
                     key={`g-${r.id}-${r.goalAmount}`}
                     onBlur={(e) => {
-                      const v = parseInt(e.target.value.replace(/\D/g, ""), 10);
+                      const v = parseInt(digitsOnly(e.target.value), 10);
                       if (!Number.isNaN(v) && v > 0 && v !== r.goalAmount) {
-                        updateField(r.id, { goalAmount: v });
+                        updateSavingsTarget(r.id, { goalAmount: v }).then(load);
                       }
                     }}
-                    className="mt-1 w-full rounded-lg border border-teal-700 bg-teal-950 px-2 py-2 text-teal-50 tabular-nums"
+                    className="mt-1 w-full rounded-lg border border-teal-700 bg-teal-950 px-2 py-2 font-medium tabular-nums text-teal-50"
                   />
                 </dd>
               </div>
